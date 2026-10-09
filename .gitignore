@@ -1,0 +1,39 @@
+# Built Android artifacts & temporary build directories
+build/
+app/build/
+.gradle/
+.build-outputs/
+local.properties
+*.apk
+*.aab
+
+# Keystores & sensitive signing certificates
+debug.keystore
+debug.keystore.base64
+*.jks
+*.keystore
+*.key
+*.pem
+*.p12
+
+# Environment variables & local secrets
+.env
+.env.local
+.env.*
+!.env.example
+
+# Service account keys & credentials
+*service-account*.json
+gcp-key*.json
+
+# Firebase CLI & Cloud Functions dependencies
+functions/node_modules/
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
+
+# IDE & OS cache
+.idea/
+*.iml
+.DS_Store
+Thumbs.db

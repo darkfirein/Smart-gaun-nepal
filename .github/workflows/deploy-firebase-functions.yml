@@ -1,0 +1,72 @@
+name: Deploy Firebase Functions & Rules
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_deploy:
+        description: 'Type DEPLOY to confirm deployment'
+        required: true
+        default: 'DEPLOY'
+
+jobs:
+  validate_and_deploy:
+    name: Validate & Deploy to Firebase
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Required for Google Cloud Workload Identity Federation
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Cloud Functions Dependencies
+        working-directory: functions
+        run: |
+          npm install
+
+      - name: Validate Cloud Functions Syntax
+        working-directory: functions
+        run: |
+          node --check index.js
+
+      # Option A: Workload Identity Federation (Recommended / Keyless)
+      - name: Authenticate via Google Cloud Workload Identity Federation
+        id: wif_auth
+        if: "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}"
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      # Deployment Step
+      - name: Deploy to Firebase (Functions & Firestore Rules)
+        run: |
+          if [ "${{ github.event.inputs.confirm_deploy }}" != "DEPLOY" ]; then
+            echo "::error::Deployment cancelled. 'confirm_deploy' must be set to 'DEPLOY'."
+            exit 1
+          fi
+
+          if [ -n "${{ secrets.FIREBASE_TOKEN }}" ]; then
+            echo "Deploying using FIREBASE_TOKEN..."
+            npx firebase-tools deploy --only functions,firestore --token "${{ secrets.FIREBASE_TOKEN }}" --non-interactive
+          elif [ -n "${{ steps.wif_auth.outputs.auth_token }}" ] || [ -n "${{ env.GOOGLE_APPLICATION_CREDENTIALS }}" ]; then
+            echo "Deploying using Google Cloud Workload Identity Federation..."
+            npx firebase-tools deploy --only functions,firestore --non-interactive
+          elif [ -n "${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}" ]; then
+            echo "Deploying using Service Account JSON Secret..."
+            echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > gcp-key.json
+            export GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/gcp-key.json
+            npx firebase-tools deploy --only functions,firestore --non-interactive
+            rm -f gcp-key.json
+          else
+            echo "::error::Missing deployment credentials."
+            echo "Please configure either Workload Identity Federation (GCP_WORKLOAD_IDENTITY_PROVIDER + GCP_SERVICE_ACCOUNT) or FIREBASE_TOKEN in GitHub Repository Secrets."
+            echo "See GITHUB_FIREBASE_SETUP.md for simple mobile-friendly setup instructions."
+            exit 1
+          fi

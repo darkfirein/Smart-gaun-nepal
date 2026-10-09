@@ -1,0 +1,8 @@
+{
+  "name": "Smart Gaun Nepal",
+  "description": "Smart Gaun Nepal digital civic and rural assistant application",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

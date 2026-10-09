@@ -1,0 +1,20 @@
+{
+  "name": "smart-gaun-nepal-functions",
+  "description": "Smart Gaun Nepal Cloud Functions & Secure Gemini Proxy",
+  "scripts": {
+    "lint": "echo \"No linter configured\"",
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^5.0.0"
+  },
+  "private": true
+}

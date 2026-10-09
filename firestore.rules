@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for authentication & role verification
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'WARD_ADMIN', 'MUNICIPALITY_ADMIN'];
+    }
+
+    // Public civic information collections (Read: public / Write: admin only)
+    match /notices/{noticeId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /emergency_contacts/{contactId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /health_facilities/{facilityId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // User profile documents & role boundaries
+    match /users/{userId} {
+      // Users can only read their own profile; admins can inspect users for moderation
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+
+      // Normal self-registration: user cannot self-assign ADMIN roles on creation
+      allow create: if isAuthenticated() && request.auth.uid == userId &&
+        (!('role' in request.resource.data) || request.resource.data.role in ['CITIZEN', 'USER']);
+
+      // Profile updates: user can edit personal profile details, but CANNOT modify their own role
+      // Role promotion/demotion can only be executed by an existing verified admin
+      allow update: if isAuthenticated() && (
+        (request.auth.uid == userId &&
+          (!('role' in request.resource.data) || request.resource.data.role == resource.data.role)) ||
+        isAdmin()
+      );
+
+      // Deletion: only verified admins
+      allow delete: if isAdmin();
+    }
+
+    // Default deny: all unmapped collections are inaccessible
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
